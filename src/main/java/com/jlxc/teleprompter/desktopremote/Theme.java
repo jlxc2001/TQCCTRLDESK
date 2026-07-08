@@ -115,6 +115,20 @@ final class Theme {
         return a;
     }
 
+    static JTextArea helpText(String text, float size) {
+        JTextArea a = new JTextArea(text);
+        a.setFont(normalFont(size));
+        a.setForeground(SUB_TEXT);
+        a.setBackground(CARD);
+        a.setEditable(false);
+        a.setFocusable(false);
+        a.setOpaque(false);
+        a.setLineWrap(true);
+        a.setWrapStyleWord(true);
+        a.setBorder(new EmptyBorder(0, 0, 0, 0));
+        return a;
+    }
+
     static GridBagConstraints gbc(int x, int y, int w, int h, double wx, double wy, int fill) {
         GridBagConstraints c = new GridBagConstraints();
         c.gridx = x;
@@ -133,6 +147,8 @@ final class Theme {
         sp.setBorder(BorderFactory.createEmptyBorder());
         sp.getViewport().setBackground(BG);
         sp.setBackground(BG);
+        sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        sp.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         return sp;
     }
 }

@@ -1,9 +1,11 @@
+import org.gradle.internal.os.OperatingSystem
+
 plugins {
     id 'application'
 }
 
 group = 'com.jlxc.teleprompter'
-version = '1.0.0'
+version = '1.1.0'
 
 java {
     toolchain {
@@ -31,25 +33,87 @@ jar {
     }
 }
 
+def appName = 'JLXCTeleprompterRemote'
+def appDisplayName = 'JLXC 提词器遥控器'
+def appIdentifier = 'com.jlxc.teleprompter.desktopremote'
+def vendorName = 'JLXC'
+def jpackageBaseArgs = {
+    def jarName = tasks.named('jar').get().archiveFileName.get()
+    return [
+            '--input', layout.buildDirectory.dir('libs').get().asFile.absolutePath,
+            '--name', appName,
+            '--main-jar', jarName,
+            '--main-class', application.mainClass.get(),
+            '--vendor', vendorName,
+            '--app-version', project.version.toString(),
+            '--java-options', '-Dfile.encoding=UTF-8'
+    ]
+}
+
 tasks.register('packageNative', Exec) {
     dependsOn tasks.named('jar')
     group = 'distribution'
-    description = 'Build a Windows/macOS app-image with jpackage.'
+    description = 'Build a native app-image for the current OS with jpackage.'
 
     def outDir = layout.buildDirectory.dir('jpackage').get().asFile.absolutePath
-    def jarName = tasks.named('jar').get().archiveFileName.get()
 
     doFirst {
         mkdir outDir
     }
 
-    commandLine 'jpackage',
-            '--type', 'app-image',
-            '--dest', outDir,
-            '--input', layout.buildDirectory.dir('libs').get().asFile.absolutePath,
-            '--name', 'JLXCTeleprompterRemote',
-            '--main-jar', jarName,
-            '--main-class', application.mainClass.get(),
-            '--vendor', 'JLXC',
-            '--java-options', '-Dfile.encoding=UTF-8'
+    commandLine(['jpackage', '--type', 'app-image', '--dest', outDir] + jpackageBaseArgs())
+}
+
+tasks.register('packageMacAppImage', Exec) {
+    dependsOn tasks.named('jar')
+    group = 'distribution'
+    description = 'Build a macOS .app image for the current Mac architecture.'
+    onlyIf { OperatingSystem.current().isMacOsX() }
+
+    def outDir = layout.buildDirectory.dir('jpackage-macos-app').get().asFile.absolutePath
+
+    doFirst {
+        mkdir outDir
+    }
+
+    commandLine(['jpackage', '--type', 'app-image', '--dest', outDir] + jpackageBaseArgs() + [
+            '--mac-package-name', appDisplayName,
+            '--mac-package-identifier', appIdentifier
+    ])
+}
+
+tasks.register('packageMacDmg', Exec) {
+    dependsOn tasks.named('jar')
+    group = 'distribution'
+    description = 'Build a macOS DMG installer for the current Mac architecture.'
+    onlyIf { OperatingSystem.current().isMacOsX() }
+
+    def outDir = layout.buildDirectory.dir('jpackage-macos-dmg').get().asFile.absolutePath
+
+    doFirst {
+        mkdir outDir
+    }
+
+    commandLine(['jpackage', '--type', 'dmg', '--dest', outDir] + jpackageBaseArgs() + [
+            '--mac-package-name', appDisplayName,
+            '--mac-package-identifier', appIdentifier
+    ])
+}
+
+tasks.register('packageMacPkg', Exec) {
+    dependsOn tasks.named('jar')
+    group = 'distribution'
+    description = 'Build a macOS PKG installer for the current Mac architecture.'
+    onlyIf { OperatingSystem.current().isMacOsX() }
+
+    def outDir = layout.buildDirectory.dir('jpackage-macos-pkg').get().asFile.absolutePath
+
+    doFirst {
+        mkdir outDir
+    }
+
+    commandLine(['jpackage', '--type', 'pkg', '--dest', outDir] + jpackageBaseArgs() + [
+            '--mac-package-name', appDisplayName,
+            '--mac-package-identifier', appIdentifier
+    ])
 }

@@ -33,11 +33,22 @@ final class MainFrame extends JFrame {
     MainFrame() {
         super("JLXC 提词器遥控器 - Windows / macOS");
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(520, 720));
-        setSize(560, 820);
-        setLocationRelativeTo(null);
+        setMinimumSize(new Dimension(680, 640));
         buildUi();
+        autoFitWindow();
         refreshButtonState();
+    }
+
+    private void autoFitWindow() {
+        Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
+        int width = Math.min(920, Math.max(720, (int) (screen.width * 0.72)));
+        int height = Math.min(860, Math.max(700, (int) (screen.height * 0.82)));
+        width = Math.min(width, screen.width - 80);
+        height = Math.min(height, screen.height - 80);
+        if (width < 680) width = Math.max(520, screen.width - 40);
+        if (height < 640) height = Math.max(560, screen.height - 40);
+        setSize(width, height);
+        setLocationRelativeTo(null);
     }
 
     private void buildUi() {
@@ -83,11 +94,11 @@ final class MainFrame extends JFrame {
     private JPanel remoteModeCard() {
         JPanel card = Theme.card();
         card.add(Theme.label("遥控功能", 18, Font.BOLD, Theme.TEXT), Theme.gbc(0, 0, 2, 1, 1, 0, GridBagConstraints.HORIZONTAL));
-        JLabel desc = Theme.label("选择桌面遥控模式。键盘模式支持方向键、PageUp/PageDown、W/S，以及系统传递给窗口的音量键。", 13, Font.PLAIN, Theme.SUB_TEXT);
+        JTextArea desc = Theme.helpText("键盘控制：方向键 / PageUp / PageDown 控制滚动，空格快速回到文档开头。滑动控制：按住鼠标上下拖动，或直接使用鼠标滚轮控制滚动。", 13);
         card.add(desc, Theme.gbc(0, 1, 2, 1, 1, 0, GridBagConstraints.HORIZONTAL));
 
-        keyboardModeButton = Theme.primaryButton("键盘 / 音量键遥控");
-        touchpadModeButton = Theme.secondaryButton("虚拟触控板");
+        keyboardModeButton = Theme.primaryButton("键盘控制");
+        touchpadModeButton = Theme.secondaryButton("滑动控制");
         pauseButton = Theme.secondaryButton("暂停 / 继续");
         topButton = Theme.secondaryButton("回到顶部");
 
@@ -106,7 +117,7 @@ final class MainFrame extends JFrame {
     private JPanel scriptCard() {
         JPanel card = Theme.card();
         card.add(Theme.label("文稿发送", 18, Font.BOLD, Theme.TEXT), Theme.gbc(0, 0, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
-        card.add(Theme.label("在电脑上新建或粘贴文稿，通过局域网发送到提词端新增文稿。", 13, Font.PLAIN, Theme.SUB_TEXT), Theme.gbc(0, 1, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
+        card.add(Theme.helpText("在电脑上新建或粘贴文稿，通过局域网发送到提词端新增文稿。", 13), Theme.gbc(0, 1, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
         scriptButton = Theme.primaryButton("发送文稿到提词器");
         scriptButton.addActionListener(e -> openScriptSender());
         card.add(scriptButton, Theme.gbc(0, 2, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));

@@ -2,8 +2,7 @@ package com.jlxc.teleprompter.desktopremote;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
@@ -16,7 +15,7 @@ final class TouchpadRemoteWindow extends JFrame {
     private Timer sendTimer;
 
     TouchpadRemoteWindow(Window owner, RemoteClient client, AppSettings settings, Consumer<String> errorCallback) {
-        super("虚拟触控板");
+        super("滑动控制");
         this.client = client;
         this.settings = settings;
         this.errorCallback = errorCallback;
@@ -145,6 +144,16 @@ final class TouchpadRemoteWindow extends JFrame {
             };
             addMouseListener(adapter);
             addMouseMotionListener(adapter);
+            addMouseWheelListener(e -> {
+                double rotation = e.getPreciseWheelRotation();
+                int dy = (int) Math.round(rotation * settings.scrollStep());
+                if (settings.reverse) dy = -dy;
+                if (dy != 0) {
+                    pendingDy.addAndGet(dy);
+                    stateLabel.setForeground(Theme.SUB_TEXT);
+                    stateLabel.setText(dy > 0 ? "鼠标滚轮：继续往后" : "鼠标滚轮：向前回退");
+                }
+            });
         }
 
         @Override protected void paintComponent(Graphics g) {
@@ -161,12 +170,12 @@ final class TouchpadRemoteWindow extends JFrame {
             }
             g2.setFont(Theme.titleFont(36));
             g2.setColor(Theme.TEXT);
-            String main = "上下滑动控制提词器滚动";
+            String main = "滑动控制提词器滚动";
             FontMetrics fm = g2.getFontMetrics();
             g2.drawString(main, (w - fm.stringWidth(main)) / 2, h / 2 - 20);
             g2.setFont(Theme.normalFont(18));
             g2.setColor(Theme.SUB_TEXT);
-            String sub = "手指 / 鼠标向上：继续往后读；向下：回退。停止滑动后停止发送。";
+            String sub = "按住鼠标上下滑动，或使用鼠标滚轮控制。向上：继续；向下：回退。";
             FontMetrics fm2 = g2.getFontMetrics();
             g2.drawString(sub, (w - fm2.stringWidth(sub)) / 2, h / 2 + 28);
             g2.dispose();

@@ -17,10 +17,9 @@ final class KeyboardRemoteWindow extends JFrame {
     private final Set<Integer> pressedKeys = new HashSet<>();
     private Timer repeatTimer;
     private int activeDirection = 0;
-    private boolean paused = false;
 
     KeyboardRemoteWindow(Window owner, RemoteClient client, AppSettings settings, Consumer<String> errorCallback) {
-        super("键盘 / 音量键遥控");
+        super("键盘控制");
         this.client = client;
         this.settings = settings;
         this.errorCallback = errorCallback;
@@ -34,8 +33,8 @@ final class KeyboardRemoteWindow extends JFrame {
 
         JPanel center = new JPanel(new GridBagLayout());
         center.setBackground(Theme.BG);
-        JLabel title = Theme.label("键盘 / 音量键遥控", 40, Font.BOLD, Theme.TEXT);
-        JLabel desc = Theme.label("防误触全屏模式：按 ↓ / PageDown / S / 音量下 继续；按 ↑ / PageUp / W / 音量上 回退；空格 暂停/继续；T 回到顶部。", 16, Font.PLAIN, Theme.SUB_TEXT);
+        JLabel title = Theme.label("键盘控制", 40, Font.BOLD, Theme.TEXT);
+        JTextArea desc = Theme.helpText("防误触全屏模式：按 ↓ / → / PageDown 继续往后滚动；按 ↑ / ← / PageUp 向前回退；长按会连续发送。空格：快速回到文档开头。", 16);
         stateLabel = Theme.label("已连接：" + client.endpoint(), 16, Font.BOLD, Theme.ACCENT);
         center.add(title, Theme.gbc(0, 0, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
         center.add(desc, Theme.gbc(0, 1, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
@@ -67,20 +66,22 @@ final class KeyboardRemoteWindow extends JFrame {
 
     private void installKeyBindings() {
         bindDirection(KeyEvent.VK_DOWN, 1);
+        bindDirection(KeyEvent.VK_RIGHT, 1);
         bindDirection(KeyEvent.VK_PAGE_DOWN, 1);
         bindDirection(KeyEvent.VK_S, 1);
         bindDirection(KEY_VOLUME_DOWN, 1);
 
         bindDirection(KeyEvent.VK_UP, -1);
+        bindDirection(KeyEvent.VK_LEFT, -1);
         bindDirection(KeyEvent.VK_PAGE_UP, -1);
         bindDirection(KeyEvent.VK_W, -1);
         bindDirection(KEY_VOLUME_UP, -1);
 
         InputMap im = getRootPane().getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
         ActionMap am = getRootPane().getActionMap();
-        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, false), "togglePause");
-        am.put("togglePause", new AbstractAction() {
-            @Override public void actionPerformed(java.awt.event.ActionEvent e) { togglePause(); }
+        im.put(KeyStroke.getKeyStroke(KeyEvent.VK_SPACE, 0, false), "topBySpace");
+        am.put("topBySpace", new AbstractAction() {
+            @Override public void actionPerformed(java.awt.event.ActionEvent e) { sendTop(); }
         });
         im.put(KeyStroke.getKeyStroke(KeyEvent.VK_T, 0, false), "top");
         am.put("top", new AbstractAction() {
@@ -135,8 +136,8 @@ final class KeyboardRemoteWindow extends JFrame {
     }
 
     private int directionForKey(int keyCode) {
-        if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_PAGE_DOWN || keyCode == KeyEvent.VK_S || keyCode == KEY_VOLUME_DOWN) return 1;
-        if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_PAGE_UP || keyCode == KeyEvent.VK_W || keyCode == KEY_VOLUME_UP) return -1;
+        if (keyCode == KeyEvent.VK_DOWN || keyCode == KeyEvent.VK_RIGHT || keyCode == KeyEvent.VK_PAGE_DOWN || keyCode == KeyEvent.VK_S || keyCode == KEY_VOLUME_DOWN) return 1;
+        if (keyCode == KeyEvent.VK_UP || keyCode == KeyEvent.VK_LEFT || keyCode == KeyEvent.VK_PAGE_UP || keyCode == KeyEvent.VK_W || keyCode == KEY_VOLUME_UP) return -1;
         return 0;
     }
 
@@ -174,27 +175,6 @@ final class KeyboardRemoteWindow extends JFrame {
                 if (errorCallback != null) errorCallback.accept(msg);
             }
         }, "scroll-key-send").start();
-    }
-
-    private void togglePause() {
-        boolean next = !paused;
-        new Thread(() -> {
-            try {
-                client.pause(next, settings.udpEnabled, settings.httpFallback);
-                paused = next;
-                SwingUtilities.invokeLater(() -> {
-                    stateLabel.setForeground(Theme.ACCENT);
-                    stateLabel.setText(paused ? "已暂停" : "已继续");
-                });
-            } catch (Exception e) {
-                String msg = RemoteClient.humanError(e);
-                SwingUtilities.invokeLater(() -> {
-                    stateLabel.setForeground(Theme.DANGER);
-                    stateLabel.setText("发送失败：" + msg);
-                });
-                if (errorCallback != null) errorCallback.accept(msg);
-            }
-        }, "pause-send").start();
     }
 
     private void sendTop() {
