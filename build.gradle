@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.jlxc.teleprompter'
-version = '1.2.0'
+version = '1.2.1'
 
 java {
     toolchain {
@@ -37,20 +37,12 @@ def appName = 'JLXCTeleprompterRemote'
 def appDisplayName = 'JLXC 提词器遥控器'
 def appIdentifier = 'com.jlxc.teleprompter.desktopremote'
 def vendorName = 'JLXC'
-def jpackageBaseArgs = {
-    def jarName = tasks.named('jar').get().archiveFileName.get()
-    return [
-            '--input', layout.buildDirectory.dir('libs').get().asFile.absolutePath,
-            '--name', appName,
-            '--main-jar', jarName,
-            '--main-class', application.mainClass.get(),
-            '--vendor', vendorName,
-            '--app-version', project.version.toString(),
-            '--java-options', '-Dfile.encoding=UTF-8'
-    ] + jpackageIconArgs()
-}
 
-def jpackageIconArgs = {
+// Keep these as closures defined before use.
+// Gradle/Groovy may otherwise try to resolve jpackageIconArgs() as a Project method
+// when tasks are created, which breaks GitHub Actions with:
+// "No signature of method: org.gradle.api.Project.jpackageIconArgs()".
+def jpackageIconArgs = { ->
     File iconFile
     if (OperatingSystem.current().isWindows()) {
         iconFile = file('src/main/resources/icons/app.ico')
@@ -60,6 +52,19 @@ def jpackageIconArgs = {
         iconFile = file('src/main/resources/icons/app.png')
     }
     return iconFile.exists() ? ['--icon', iconFile.absolutePath] : []
+}
+
+def jpackageBaseArgs = { ->
+    def jarName = tasks.named('jar').get().archiveFileName.get()
+    return [
+            '--input', layout.buildDirectory.dir('libs').get().asFile.absolutePath,
+            '--name', appName,
+            '--main-jar', jarName,
+            '--main-class', application.mainClass.get(),
+            '--vendor', vendorName,
+            '--app-version', project.version.toString(),
+            '--java-options', '-Dfile.encoding=UTF-8'
+    ] + jpackageIconArgs.call()
 }
 
 tasks.register('packageNative', Exec) {
@@ -73,7 +78,7 @@ tasks.register('packageNative', Exec) {
         mkdir outDir
     }
 
-    commandLine(['jpackage', '--type', 'app-image', '--dest', outDir] + jpackageBaseArgs())
+    commandLine(['jpackage', '--type', 'app-image', '--dest', outDir] + jpackageBaseArgs.call())
 }
 
 tasks.register('packageMacAppImage', Exec) {
@@ -88,7 +93,7 @@ tasks.register('packageMacAppImage', Exec) {
         mkdir outDir
     }
 
-    commandLine(['jpackage', '--type', 'app-image', '--dest', outDir] + jpackageBaseArgs() + [
+    commandLine(['jpackage', '--type', 'app-image', '--dest', outDir] + jpackageBaseArgs.call() + [
             '--mac-package-name', appDisplayName,
             '--mac-package-identifier', appIdentifier
     ])
@@ -106,7 +111,7 @@ tasks.register('packageMacDmg', Exec) {
         mkdir outDir
     }
 
-    commandLine(['jpackage', '--type', 'dmg', '--dest', outDir] + jpackageBaseArgs() + [
+    commandLine(['jpackage', '--type', 'dmg', '--dest', outDir] + jpackageBaseArgs.call() + [
             '--mac-package-name', appDisplayName,
             '--mac-package-identifier', appIdentifier
     ])
@@ -124,7 +129,7 @@ tasks.register('packageMacPkg', Exec) {
         mkdir outDir
     }
 
-    commandLine(['jpackage', '--type', 'pkg', '--dest', outDir] + jpackageBaseArgs() + [
+    commandLine(['jpackage', '--type', 'pkg', '--dest', outDir] + jpackageBaseArgs.call() + [
             '--mac-package-name', appDisplayName,
             '--mac-package-identifier', appIdentifier
     ])
