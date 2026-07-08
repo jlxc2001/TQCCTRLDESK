@@ -1,0 +1,55 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.jlxc.teleprompter'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+application {
+    mainClass = 'com.jlxc.teleprompter.desktopremote.App'
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    options.release = 17
+}
+
+jar {
+    archiveBaseName = 'JLXC-Teleprompter-Desktop-Remote'
+    manifest {
+        attributes(
+                'Main-Class': application.mainClass.get(),
+                'Implementation-Title': 'JLXC Teleprompter Desktop Remote',
+                'Implementation-Version': project.version
+        )
+    }
+}
+
+tasks.register('packageNative', Exec) {
+    dependsOn tasks.named('jar')
+    group = 'distribution'
+    description = 'Build a Windows/macOS app-image with jpackage.'
+
+    def outDir = layout.buildDirectory.dir('jpackage').get().asFile.absolutePath
+    def jarName = tasks.named('jar').get().archiveFileName.get()
+
+    doFirst {
+        mkdir outDir
+    }
+
+    commandLine 'jpackage',
+            '--type', 'app-image',
+            '--dest', outDir,
+            '--input', layout.buildDirectory.dir('libs').get().asFile.absolutePath,
+            '--name', 'JLXCTeleprompterRemote',
+            '--main-jar', jarName,
+            '--main-class', application.mainClass.get(),
+            '--vendor', 'JLXC',
+            '--java-options', '-Dfile.encoding=UTF-8'
+}
