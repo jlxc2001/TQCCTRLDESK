@@ -4,6 +4,8 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.ColorUIResource;
 import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.net.URL;
 
 final class Theme {
     static final Color BG = new Color(0x101214);
@@ -16,6 +18,8 @@ final class Theme {
     static final Color ACCENT_DARK = new Color(0x249E98);
     static final Color DANGER = new Color(0xFF6B6B);
     static final Color SUCCESS = new Color(0x6EE7B7);
+    static final Color DISABLED_BG = new Color(0x2A3038);
+    static final Color DISABLED_TEXT = new Color(0xD0D6DE);
 
     private Theme() {}
 
@@ -41,6 +45,24 @@ final class Theme {
         UIManager.put("ScrollPane.background", BG);
         UIManager.put("Viewport.background", BG);
         UIManager.put("Button.focus", new ColorUIResource(new Color(0, 0, 0, 0)));
+        UIManager.put("Button.disabledText", new ColorUIResource(DISABLED_TEXT));
+    }
+
+    static Image loadAppIcon() {
+        try {
+            URL url = Theme.class.getResource("/icons/app.png");
+            if (url != null) return new ImageIcon(url).getImage();
+        } catch (Exception ignored) {}
+        BufferedImage fallback = new BufferedImage(64, 64, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g = fallback.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setColor(ACCENT);
+        g.fillRoundRect(4, 4, 56, 56, 18, 18);
+        g.setColor(Color.WHITE);
+        g.setFont(boldFont(18));
+        g.drawString("JL", 19, 38);
+        g.dispose();
+        return fallback;
     }
 
     static Font titleFont(float size) {
@@ -70,27 +92,11 @@ final class Theme {
     }
 
     static JButton primaryButton(String text) {
-        JButton b = new JButton(text);
-        b.setFont(boldFont(15));
-        b.setForeground(Color.BLACK);
-        b.setBackground(ACCENT);
-        b.setOpaque(true);
-        b.setBorder(new EmptyBorder(12, 18, 12, 18));
-        b.setFocusPainted(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
+        return new UnifiedButton(text, true);
     }
 
     static JButton secondaryButton(String text) {
-        JButton b = new JButton(text);
-        b.setFont(boldFont(14));
-        b.setForeground(TEXT);
-        b.setBackground(CARD_2);
-        b.setOpaque(true);
-        b.setBorder(new EmptyBorder(10, 16, 10, 16));
-        b.setFocusPainted(false);
-        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-        return b;
+        return new UnifiedButton(text, false);
     }
 
     static JTextField textField(String text) {
@@ -129,6 +135,13 @@ final class Theme {
         return a;
     }
 
+    static JPanel buttonRow(int columns, JButton... buttons) {
+        JPanel row = new JPanel(new GridLayout(1, Math.max(1, columns), 12, 12));
+        row.setOpaque(false);
+        for (JButton b : buttons) row.add(b);
+        return row;
+    }
+
     static GridBagConstraints gbc(int x, int y, int w, int h, double wx, double wy, int fill) {
         GridBagConstraints c = new GridBagConstraints();
         c.gridx = x;
@@ -150,5 +163,75 @@ final class Theme {
         sp.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         sp.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
         return sp;
+    }
+
+    private static final class UnifiedButton extends JButton {
+        private final boolean primary;
+
+        UnifiedButton(String text, boolean primary) {
+            super(text);
+            this.primary = primary;
+            setFont(boldFont(primary ? 15 : 14));
+            setForeground(primary ? Color.BLACK : TEXT);
+            setBackground(primary ? ACCENT : CARD_2);
+            setOpaque(false);
+            setContentAreaFilled(false);
+            setBorderPainted(false);
+            setFocusPainted(false);
+            setRolloverEnabled(true);
+            setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+            setMargin(new Insets(0, 0, 0, 0));
+            setBorder(new EmptyBorder(12, 16, 12, 16));
+            setHorizontalAlignment(SwingConstants.CENTER);
+            setVerticalAlignment(SwingConstants.CENTER);
+            setMinimumSize(new Dimension(120, 46));
+            setPreferredSize(new Dimension(160, 48));
+        }
+
+        @Override public void setEnabled(boolean enabled) {
+            super.setEnabled(enabled);
+            setCursor(enabled ? Cursor.getPredefinedCursor(Cursor.HAND_CURSOR) : Cursor.getDefaultCursor());
+        }
+
+        @Override protected void paintComponent(Graphics g) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int w = getWidth();
+            int h = getHeight();
+            Color bg;
+            Color fg;
+            if (!isEnabled()) {
+                bg = DISABLED_BG;
+                fg = DISABLED_TEXT;
+            } else if (primary) {
+                bg = getModel().isPressed() ? ACCENT_DARK : ACCENT;
+                fg = Color.BLACK;
+            } else {
+                bg = getModel().isPressed() ? new Color(0x303741) : CARD_2;
+                fg = TEXT;
+            }
+            if (isEnabled() && getModel().isRollover()) bg = lighten(bg, primary ? 10 : 8);
+            g2.setColor(bg);
+            g2.fillRoundRect(0, 0, w, h, 14, 14);
+            if (primary) {
+                g2.setColor(new Color(0x4DDAD0));
+                g2.drawRoundRect(0, 0, w - 1, h - 1, 14, 14);
+            } else {
+                g2.setColor(new Color(0x303844));
+                g2.drawRoundRect(0, 0, w - 1, h - 1, 14, 14);
+            }
+            g2.dispose();
+            setForeground(fg);
+            super.paintComponent(g);
+        }
+
+        private static Color lighten(Color c, int amount) {
+            return new Color(
+                    Math.min(255, c.getRed() + amount),
+                    Math.min(255, c.getGreen() + amount),
+                    Math.min(255, c.getBlue() + amount),
+                    c.getAlpha()
+            );
+        }
     }
 }

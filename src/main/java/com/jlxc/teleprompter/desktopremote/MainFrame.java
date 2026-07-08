@@ -26,6 +26,8 @@ final class MainFrame extends JFrame {
     private RemoteClient client;
     private boolean connected = false;
     private boolean scriptUploadSupported = false;
+    private boolean scriptManageSupported = false;
+    private boolean remotePromptSupported = false;
     private boolean paused = false;
     private Timer pingTimer;
     private final AtomicBoolean pinging = new AtomicBoolean(false);
@@ -33,7 +35,8 @@ final class MainFrame extends JFrame {
     MainFrame() {
         super("JLXC 提词器遥控器 - Windows / macOS");
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        setMinimumSize(new Dimension(680, 640));
+        setIconImage(Theme.loadAppIcon());
+        setMinimumSize(new Dimension(720, 680));
         buildUi();
         autoFitWindow();
         refreshButtonState();
@@ -77,7 +80,7 @@ final class MainFrame extends JFrame {
         ipField = Theme.textField(settings.ip);
         portField = Theme.textField(Integer.toString(settings.port));
         statusLabel = Theme.label("未连接", 14, Font.BOLD, Theme.MUTED);
-        uploadSupportLabel = Theme.label("连接后检测是否支持远程发送文稿", 13, Font.PLAIN, Theme.SUB_TEXT);
+        uploadSupportLabel = Theme.label("连接后检测远程文稿管理 / 远程提词能力", 13, Font.PLAIN, Theme.SUB_TEXT);
         connectButton = Theme.primaryButton("连接");
         connectButton.addActionListener(e -> connect());
 
@@ -116,10 +119,10 @@ final class MainFrame extends JFrame {
 
     private JPanel scriptCard() {
         JPanel card = Theme.card();
-        card.add(Theme.label("文稿发送", 18, Font.BOLD, Theme.TEXT), Theme.gbc(0, 0, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
-        card.add(Theme.helpText("在电脑上新建或粘贴文稿，通过局域网发送到提词端新增文稿。", 13), Theme.gbc(0, 1, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
-        scriptButton = Theme.primaryButton("发送文稿到提词器");
-        scriptButton.addActionListener(e -> openScriptSender());
+        card.add(Theme.label("文稿管理", 18, Font.BOLD, Theme.TEXT), Theme.gbc(0, 0, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
+        card.add(Theme.helpText("查看、添加、编辑、删除提词端文稿，也可以远程开始或关闭提词。", 13), Theme.gbc(0, 1, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
+        scriptButton = Theme.primaryButton("文稿管理");
+        scriptButton.addActionListener(e -> openScriptManager());
         card.add(scriptButton, Theme.gbc(0, 2, 1, 1, 1, 0, GridBagConstraints.HORIZONTAL));
         return card;
     }
@@ -163,7 +166,7 @@ final class MainFrame extends JFrame {
     }
 
     private JComponent protocolHint() {
-        JTextArea hint = Theme.textArea("协议：HTTP /api/ping 连接检测；UDP 高频发送 SCROLL dy；HTTP 备用 /api/remote/scroll?dy=；文稿使用 JSON POST /api/remote/scripts/add，失败后尝试 text/plain 备用接口。全部走局域网，不使用公网服务。");
+        JTextArea hint = Theme.textArea("协议：HTTP /api/ping 连接检测；UDP 高频发送 SCROLL dy；HTTP 备用 /api/remote/scroll?dy=；文稿管理使用 /api/remote/scripts/*；远程提词使用 /api/remote/prompt/*。全部走局域网，不使用公网服务。");
         hint.setEditable(false);
         hint.setFocusable(false);
         hint.setBackground(Theme.BG);
@@ -210,6 +213,8 @@ final class MainFrame extends JFrame {
                 } catch (Exception e) {
                     connected = false;
                     scriptUploadSupported = false;
+                    scriptManageSupported = false;
+                    remotePromptSupported = false;
                     setStatus("连接失败：" + RemoteClient.humanError(e), Theme.DANGER);
                     refreshButtonState();
                 }
@@ -221,11 +226,15 @@ final class MainFrame extends JFrame {
         connected = result.ok;
         if (result.ok) {
             scriptUploadSupported = result.scriptUpload;
+            scriptManageSupported = result.scriptManage;
+            remotePromptSupported = result.remotePrompt;
             setStatus("已连接：" + client.endpoint(), Theme.SUCCESS);
-            uploadSupportLabel.setForeground(scriptUploadSupported ? Theme.ACCENT : Theme.SUB_TEXT);
-            uploadSupportLabel.setText(scriptUploadSupported ? "支持远程发送文稿" : "当前提词端版本不支持远程文稿");
+            updateCapabilityLabel();
             if (fromConnect) startPingTimer();
         } else {
+            scriptUploadSupported = false;
+            scriptManageSupported = false;
+            remotePromptSupported = false;
             setStatus("连接失败：" + result.message, Theme.DANGER);
             uploadSupportLabel.setForeground(Theme.SUB_TEXT);
             uploadSupportLabel.setText("当前未连接");
@@ -248,16 +257,23 @@ final class MainFrame extends JFrame {
                         if (r.ok) {
                             connected = true;
                             scriptUploadSupported = r.scriptUpload;
+                            scriptManageSupported = r.scriptManage;
+                            remotePromptSupported = r.remotePrompt;
                             setStatus("已连接：" + client.endpoint(), Theme.SUCCESS);
-                            uploadSupportLabel.setForeground(scriptUploadSupported ? Theme.ACCENT : Theme.SUB_TEXT);
-                            uploadSupportLabel.setText(scriptUploadSupported ? "支持远程发送文稿" : "当前提词端版本不支持远程文稿");
+                            updateCapabilityLabel();
                         } else {
                             connected = false;
+                            scriptUploadSupported = false;
+                            scriptManageSupported = false;
+                            remotePromptSupported = false;
                             setStatus("已断开：" + r.message, Theme.DANGER);
                         }
                         refreshButtonState();
                     } catch (Exception ignored) {
                         connected = false;
+                        scriptUploadSupported = false;
+                        scriptManageSupported = false;
+                        remotePromptSupported = false;
                         setStatus("已断开", Theme.DANGER);
                         refreshButtonState();
                     }
@@ -267,15 +283,34 @@ final class MainFrame extends JFrame {
         pingTimer.start();
     }
 
+    private void updateCapabilityLabel() {
+        if (scriptManageSupported && remotePromptSupported) {
+            uploadSupportLabel.setForeground(Theme.ACCENT);
+            uploadSupportLabel.setText("支持远程文稿管理 / 远程开始提词");
+        } else if (scriptManageSupported) {
+            uploadSupportLabel.setForeground(Theme.ACCENT);
+            uploadSupportLabel.setText("支持远程文稿管理");
+        } else if (scriptUploadSupported) {
+            uploadSupportLabel.setForeground(Theme.ACCENT);
+            uploadSupportLabel.setText("支持远程发送文稿");
+        } else {
+            uploadSupportLabel.setForeground(Theme.SUB_TEXT);
+            uploadSupportLabel.setText("当前提词端版本不支持远程文稿");
+        }
+    }
+
     private void refreshButtonState() {
         boolean c = connected && client != null;
         keyboardModeButton.setEnabled(c);
         touchpadModeButton.setEnabled(c);
         pauseButton.setEnabled(c);
         topButton.setEnabled(c);
-        scriptButton.setEnabled(c && scriptUploadSupported);
+        boolean anyScriptFeature = scriptManageSupported || scriptUploadSupported;
+        scriptButton.setEnabled(c && anyScriptFeature);
         if (!c) {
-            scriptButton.setText("发送文稿到提词器");
+            scriptButton.setText("文稿管理");
+        } else if (scriptManageSupported) {
+            scriptButton.setText("文稿管理");
         } else if (scriptUploadSupported) {
             scriptButton.setText("发送文稿到提词器");
         } else {
@@ -304,13 +339,17 @@ final class MainFrame extends JFrame {
         ensureConnectedThen(() -> new TouchpadRemoteWindow(this, client, settings, this::showSendError).setVisible(true));
     }
 
-    private void openScriptSender() {
+    private void openScriptManager() {
         ensureConnectedThen(() -> {
-            if (!scriptUploadSupported) {
-                JOptionPane.showMessageDialog(this, "当前提词端版本不支持远程文稿", "提示", JOptionPane.INFORMATION_MESSAGE);
+            if (scriptManageSupported || remotePromptSupported) {
+                new ScriptManageFrame(this, client, scriptManageSupported, remotePromptSupported).setVisible(true);
                 return;
             }
-            new ScriptSendFrame(this, client).setVisible(true);
+            if (scriptUploadSupported) {
+                new ScriptEditFrame(this, client, null, "", "", () -> {}).setVisible(true);
+                return;
+            }
+            JOptionPane.showMessageDialog(this, "当前提词端版本不支持远程文稿", "提示", JOptionPane.INFORMATION_MESSAGE);
         });
     }
 

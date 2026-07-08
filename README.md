@@ -2,11 +2,23 @@
 
 这是安卓“提词器遥控器 APP”的桌面版控制端，面向 Windows 和 macOS。它不负责显示提词文本，只通过局域网控制另一台手机 / 平板上的 JLXC Teleprompter 提词端。
 
+## 本版更新
+
+- 图标已替换为用户提供的二次元遥控器图标。
+- Windows / macOS 所有按钮统一为同一套深色圆角样式，避免系统默认按钮导致灰底灰字、连接后可读性下降。
+- 文稿入口升级为“文稿管理”。
+- 新增完整远程文稿管理：列表、获取全文、新增、编辑、删除。
+- 新增远程提词控制：开始提词、关闭提词、读取当前提词状态。
+- 保留原有遥控滚动、键盘控制、滑动控制、鼠标滚轮、UDP 高频、HTTP 备用、暂停 / 继续、回到顶部。
+
 ## 已实现功能
 
 - 输入提词端 IP 和端口连接，默认端口 `47230`
 - HTTP `GET /api/ping` 连接检测
-- 识别提词端 `scriptUpload=true`，显示是否支持远程发送文稿
+- 识别提词端能力：
+  - `scriptUpload=true`：支持远程发送文稿
+  - `scriptManage=true`：支持远程文稿管理
+  - `remotePrompt=true`：支持远程开始 / 关闭提词
 - 键盘控制模式
   - `↓` / `→` / `PageDown` / `S`：继续往后滚动
   - `↑` / `←` / `PageUp` / `W`：向前回退
@@ -32,11 +44,14 @@
 - 回到顶部
   - UDP：`TOP`
   - HTTP：`POST /api/remote/top`
-- 远程发送文稿到提词端
-  - JSON：`POST /api/remote/scripts/add`
-  - 备用纯文本：`POST /api/remote/scripts/add?title=...`
-- 查看提词端文稿列表
-  - `GET /api/remote/scripts`
+- 文稿管理
+  - 查看提词端文稿列表
+  - 新增文稿
+  - 获取全文并编辑已有文稿
+  - 删除文稿，删除前二次确认
+  - 远程选择文稿并开始提词
+  - 远程关闭提词页面
+  - 查看当前提词状态
 - 设置保存
   - IP
   - 端口
@@ -50,17 +65,17 @@
 
 ## macOS 版本怎么用
 
-现在工程已经支持通过 GitHub Actions 直接打包 macOS 安装包：
+工程支持通过 GitHub Actions 直接打包 macOS 安装包：
 
 - Apple 芯片版：`macos-apple-silicon-arm64`
 - Intel 芯片版：`macos-intel-x64`
 
-因为 `jpackage` 会把 Java 运行时一起打进 `.app` / `.dmg` / `.pkg` 里，所以独立安装包是按 CPU 架构区分的：
+因为 `jpackage` 会把 Java 运行时一起打进 `.app` / `.dmg` / `.pkg` 里，所以独立安装包按 CPU 架构区分：
 
 - Apple Silicon Mac，下载 `apple-silicon-arm64` 版本。
 - Intel Mac，下载 `intel-x64` 版本。
 - 如果只运行 `.jar`，一套 Jar 可以跨 Intel / Apple 芯片使用，但电脑上需要安装 Java 17 或更高版本。
-- 如果要“直接安装就能用”，推荐发两份 DMG / PKG；这样将来 Apple 芯片环境不再依赖 x86 转译时，也可以直接用 arm64 版本。
+- 如果要“直接安装就能用”，推荐发两份 DMG / PKG。
 
 ## GitHub Actions 打包 macOS DMG / PKG
 
@@ -111,7 +126,7 @@ PKG：
 
 当前工程默认生成的是未签名、未公证的安装包。个人测试可以直接用；如果要正式分发，建议后续加 Apple Developer ID 签名和 Notarization 公证。
 
-如果 macOS 拦截得比较严格，可以在终端执行一次：
+如果 macOS 提示“软件已损坏”，可以在终端执行：
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/JLXCTeleprompterRemote.app
@@ -227,6 +242,18 @@ UDP: TOP
 POST /api/remote/top
 ```
 
+文稿列表：
+
+```http
+GET /api/remote/scripts
+```
+
+获取全文：
+
+```http
+GET /api/remote/scripts/get?id=URL编码后的id
+```
+
 新增文稿：
 
 ```http
@@ -234,15 +261,33 @@ POST /api/remote/scripts/add
 Content-Type: application/json; charset=utf-8
 ```
 
-备用纯文本：
+编辑文稿：
 
 ```http
-POST /api/remote/scripts/add?title=URL编码标题
-Content-Type: text/plain; charset=utf-8
+POST /api/remote/scripts/update?id=URL编码后的id
+Content-Type: application/json; charset=utf-8
 ```
 
-查看文稿列表：
+删除文稿：
 
 ```http
-GET /api/remote/scripts
+POST /api/remote/scripts/delete?id=URL编码后的id
+```
+
+远程开始提词：
+
+```http
+POST /api/remote/prompt/start?id=URL编码后的id
+```
+
+远程关闭提词：
+
+```http
+POST /api/remote/prompt/stop
+```
+
+提词状态：
+
+```http
+GET /api/remote/prompt/status
 ```

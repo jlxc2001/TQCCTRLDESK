@@ -5,7 +5,7 @@ plugins {
 }
 
 group = 'com.jlxc.teleprompter'
-version = '1.1.0'
+version = '1.2.0'
 
 java {
     toolchain {
@@ -47,7 +47,19 @@ def jpackageBaseArgs = {
             '--vendor', vendorName,
             '--app-version', project.version.toString(),
             '--java-options', '-Dfile.encoding=UTF-8'
-    ]
+    ] + jpackageIconArgs()
+}
+
+def jpackageIconArgs = {
+    File iconFile
+    if (OperatingSystem.current().isWindows()) {
+        iconFile = file('src/main/resources/icons/app.ico')
+    } else if (OperatingSystem.current().isMacOsX()) {
+        iconFile = file('src/main/resources/icons/app.icns')
+    } else {
+        iconFile = file('src/main/resources/icons/app.png')
+    }
+    return iconFile.exists() ? ['--icon', iconFile.absolutePath] : []
 }
 
 tasks.register('packageNative', Exec) {
